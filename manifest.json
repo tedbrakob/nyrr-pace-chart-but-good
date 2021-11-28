@@ -12,5 +12,6 @@
     "web_accessible_resources": [{
         "resources": ["nyrr-but-good.js"],
         "matches": ["*://results.nyrr.org/*"]
-    }]
+    }],
+    "icons": { "128": "images/icon.jpeg" }
 }

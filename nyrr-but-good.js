@@ -3,52 +3,47 @@ Highcharts.Chart.prototype.callbacks.push(function (chart) {
 });
 
 function onChartLoad(e) {
-    // This is called twice to solve discrepencies between loads on refresh vs hard refresh
     attachClickEventToGraphViewButton();
 
-    let eventDetails = getEventDetails();
-    let resultDetails = getResultDetails();
-
-    if(!eventDetails || !resultDetails) {
+    let scope = getAngularScope();
+    if(!scope.eventDetails || !scope.resultDetails) {
         //data is not yet loaded, abort
         return;
     }
 
-    let eventDistanceMi = getEventDistanceMi(eventDetails);
-
-    let splits = parseSplits(resultDetails, eventDistanceMi);
-    addPaceAndSpeedToSplits(splits);
-
-    resultDetails.splitResults = splits;
-
-    setTimeout(() => {
-        e.target.tooltip.options.formatter = tooltipFormatter;
-        e.target.series[0].setData(getChartDataFromSplits(splits), true);
-    }, 1);
-}
-
-function getEventDistanceMi(eventDetails) {
-    let eventDistanceKm = eventDetails.distanceDimension;
-    return kmToMiles(eventDistanceKm);
+    scope.resultDetails.splitResults = updateSplitData(scope);
 }
 
 function attachClickEventToGraphViewButton() {
     let buttonList = document.getElementsByClassName('graph-btn');
     if (buttonList.length == 1) {
         let button = buttonList[0];
-        button.addEventListener('click', fixFinishSplit);
+        button.addEventListener('click', setChartData);
     }
 }
 
-function getEventDetails() {
-    let scope = angular.element(document.querySelector('[ng-controller="runnerGraphController"]')).scope();
-    return scope.eventDetails;
+function setChartData() {
+    let scope = getAngularScope();
+    let splits = scope.resultDetails.splitResults;
+    
+    let chartData = getChartDataFromSplits(splits);
+
+    Highcharts.charts[1].series[0].setData(chartData, true);
+    Highcharts.charts[1].tooltip.options.formatter = tooltipFormatter;
 }
 
-function getResultDetails() {
-    let scope = angular.element(document.querySelector('[ng-controller="runnerGraphController"]')).scope();
-    return scope.resultDetails;
-    
+function getAngularScope() {
+    return angular.element(document.querySelector('[ng-controller="runnerGraphController"]')).scope();
+}
+
+function updateSplitData(scope) {
+    let splits = parseSplits(scope);
+    return addPaceAndSpeedToSplits(splits);
+}
+
+function getEventDistanceMi(scope) {
+    let eventDistanceKm = scope.eventDetails.distanceDimension;
+    return kmToMiles(eventDistanceKm);
 }
 
 function getChartDataFromSplits(splits) {
@@ -58,15 +53,9 @@ function getChartDataFromSplits(splits) {
     };});
 }
 
-function fixFinishSplit() {
-    let scope = angular.element(document.querySelector('[ng-controller="runnerGraphController"]')).scope();
-    let splits = scope.resultDetails.splitResults;
+function parseSplits(scope) {
+    resultDetails = scope.resultDetails;
 
-    let chartData = getChartDataFromSplits(splits);
-    Highcharts.charts[1].series[0].setData(chartData, true);
-}
-
-function parseSplits(resultDetails, eventDistanceMi) {
     let splits = resultDetails.splitResults.map((split) => {
         return {
             distance: split.distance ?? getSplitDistanceFromCode(split.splitCode),
@@ -77,9 +66,11 @@ function parseSplits(resultDetails, eventDistanceMi) {
         };
     });
 
-    if(!lastSplitIsFinish(splits, eventDistanceMi)) {
+    let finishDistance = getEventDistanceMi(scope);
+
+    if(!lastSplitIsDistance(splits, finishDistance)) {
         splits.push({
-            distance: eventDistanceMi,
+            distance: finishDistance,
             time: resultDetails.timeOverall,
             timeSeconds: timeStringToSeconds(resultDetails.timeOverall),
             splitCode: "FINISH",
@@ -130,9 +121,9 @@ function timeStringToSeconds(timeString) {
     return seconds;
 }
 
-function lastSplitIsFinish(splits, eventDistanceMi) {
+function lastSplitIsDistance(splits, distanceMi) {
     let lastSplit = splits[splits.length - 1];
-    return lastSplit.distance == eventDistanceMi;
+    return lastSplit.distance == distanceMi;
 }
 
 function getPaceMinutesPerMile(seconds, miles) {

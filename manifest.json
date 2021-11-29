@@ -1,6 +1,6 @@
 {
     "name": "NYRR Pace Chart But Good",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": "Shows split pace on NYRR results instead of cumulative average pace",
     "manifest_version": 3,
     "content_scripts": [
